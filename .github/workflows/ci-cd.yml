@@ -48,5 +48,5 @@ jobs:
       run: |
         IMAGE_PREFIX=ghcr.io/${{ github.repository_owner }}
 
-        docker build -t $IMAGE_PREFIX/powerport-datatracking-service:latest ./src/DataTrackingService
-        docker push $IMAGE_PREFIX/powerport-datatracking-service:latest
+        docker build -t $IMAGE_PREFIX/powerport-data-tracking-service:latest ./src/DataTrackingService
+        docker push $IMAGE_PREFIX/powerport-data-tracking-service:latest
