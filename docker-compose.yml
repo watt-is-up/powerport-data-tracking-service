@@ -1,0 +1,20 @@
+services:
+  data-tracking-service:
+    build:
+      context: ./src/DataTrackingService
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - MONGO_CONNECTION_STRING=mongodb://mongo:27017/datatracking
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:7.0
+    container_name: mongo
+    environment:
+      MONGO_INITDB_DATABASE: datatracking
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
