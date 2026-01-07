@@ -18,7 +18,6 @@ public class ChargingSessionReadServiceTests : IDisposable
     private readonly IConfiguration _configuration = new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?>
         {
-            { "MongoDb:ConnectionString", "mongodb://localhost:27017" },
             { "MongoDb:SharedDatabaseName", "shared_database" }
         })
         .Build();
