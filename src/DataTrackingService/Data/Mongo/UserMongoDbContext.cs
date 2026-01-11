@@ -13,6 +13,8 @@ public class UserMongoDbContext
         _database = database;
     }
 
+    public IMongoDatabase Database => _database;
+
     public IMongoCollection<UserSpreadsheet> UserSpreadsheets =>
         _database.GetCollection<UserSpreadsheet>("user_spreadsheets");
 

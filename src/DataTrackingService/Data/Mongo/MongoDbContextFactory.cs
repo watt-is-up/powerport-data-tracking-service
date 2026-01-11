@@ -1,31 +1,72 @@
 using MongoDB.Driver;
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Options;
 
 using DataTrackingService.Domain.Models.Providers;
+using DataTrackingService.Data.Mongo.Multitenancy;
 
 namespace DataTrackingService.Data.Mongo;
-
-public class MongoDbContextFactory : IMongoDbContextFactory
+public interface IMongoDbContextFactory
 {
-    private readonly IMongoClient _client;
+    UserMongoDbContext GetUserContext();
+    TenantMongoDbContext GetTenantContext(string providerId);
+}
+
+public sealed class MongoDbContextFactory: IMongoDbContextFactory
+{
+    private readonly ILogger<MongoDbContextFactory> _logger;
     private readonly ITenantRegistry _tenantRegistry;
+    private readonly string _host;
+    private readonly int _port;
     private readonly string _sharedDatabaseName;
 
+    private readonly MongoClient _sharedClient;
+    private readonly ConcurrentDictionary<string, MongoClient> _tenantClients = new();
+
     public MongoDbContextFactory(
-        IMongoClient client,
         ITenantRegistry tenantRegistry,
-        IConfiguration config)
+        IOptions<MongoOptions> options,
+        ILogger<MongoDbContextFactory> logger)
     {
-        _client = client;
         _tenantRegistry = tenantRegistry;
+        _logger = logger;
+
+        _host = options.Value.Host;
+        _port = options.Value.Port;
+        _sharedDatabaseName = options.Value.SharedDatabase;
+
+        // Shared DB client (single user)
+        _sharedClient = CreateClient(
+            _host,
+            _port,
+            options.Value.SharedUser,
+            options.Value.SharedPassword,
+            authDb: _sharedDatabaseName  // <- use the DB the user exists in
+        );
+    }
+
+    private MongoClient CreateClient(
+        string host,
+        int port,
+        string username,
+        string password,
+        string authDb)
+    {
+        var url = new MongoUrlBuilder
+        {
+            Server = new MongoServerAddress(host, port),
+            Username = username,
+            Password = password,
+            AuthenticationSource = authDb
+        };
         
-        var settings = config.GetSection("MongoDb");
-        _sharedDatabaseName = settings["SharedDatabaseName"] 
-            ?? throw new ArgumentNullException("MongoDb:SharedDatabaseName is missing");
+        _logger.LogInformation("Creating mongo Client with url {url}", url.ToMongoUrl());
+        return new MongoClient(url.ToMongoUrl());
     }
 
     public UserMongoDbContext GetUserContext()
-    {   
-        var db = _client.GetDatabase(_sharedDatabaseName);
+    {
+        var db = _sharedClient.GetDatabase(_sharedDatabaseName);
         return new UserMongoDbContext(db);
     }
 
@@ -33,11 +74,29 @@ public class MongoDbContextFactory : IMongoDbContextFactory
     {
         var tenant = _tenantRegistry.Get(providerId);
 
-        var dbName = tenant.Mode == TenantMode.Isolated
-            ? tenant.DatabaseName
-            : "shared_providers";
+        if (tenant.Mode != TenantMode.Isolated)
+            throw new InvalidOperationException("Tenant is not isolated");
 
-        var db = _client.GetDatabase(dbName);
+        var client = _tenantClients.GetOrAdd(
+            tenant.Id,
+            _ => CreateClient(
+                _host,
+                _port,
+                tenant.DatabaseConnection.User,
+                tenant.DatabaseConnection.Password,
+                tenant.DatabaseConnection.DatabaseName)
+        );
+
+        var db = client.GetDatabase(tenant.DatabaseConnection.DatabaseName);
         return new TenantMongoDbContext(db);
     }
+}
+
+public sealed class MongoOptions
+{
+    public string Host { get; init; } = default!;
+    public int Port { get; init; }
+    public string SharedDatabase { get; init; } = default!;
+    public string SharedUser { get; init; } = default!;
+    public string SharedPassword { get; init; } = default!;
 }

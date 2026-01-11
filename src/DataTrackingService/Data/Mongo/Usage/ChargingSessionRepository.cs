@@ -2,7 +2,6 @@ using DataTrackingService.Domain.Models.Usage;
 using MongoDB.Driver;
 
 namespace DataTrackingService.Data.Mongo.Usage;
-
 public class ChargingSessionRepository
 {
     private readonly IMongoDbContextFactory _factory;

@@ -3,9 +3,13 @@ using DataTrackingService.Application.Queries;
 using DataTrackingService.Data.Mongo.Spreadsheets;
 using DataTrackingService.Data.Mongo;
 using DataTrackingService.Domain.Models.Spreadsheets;
+using DataTrackingService.Infrastructure.Multitenancy;
+using DataTrackingService.Data.Mongo.Multitenancy;
 using Mongo2Go;
 using MongoDB.Driver;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Xunit;
 
 public class UserSpreadsheetServiceTests : IDisposable
@@ -14,22 +18,20 @@ public class UserSpreadsheetServiceTests : IDisposable
     private readonly UserSpreadsheetWriteService _writeService;
     private readonly UserSpreadsheetReadService _readService;
     private readonly IMongoDbContextFactory _factory;
-    private readonly ITenantRegistry _tenantRegistry = new TenantRegistry();
-    private readonly IConfiguration _configuration = new ConfigurationBuilder()
-        .AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            { "MongoDb:SharedDatabaseName", "shared_database" }
-        })
-        .Build();
+    private readonly ITenantRegistry _tenantRegistry;
 
+    // UserSpreadsheetServiceTests.cs
     public UserSpreadsheetServiceTests()
     {
         _runner = MongoDbRunner.Start();
+        _tenantRegistry = new TenantRegistry(TenantBootstrap.GetMockTenants());
+
         var client = new MongoClient(_runner.ConnectionString);
-        _factory = new MongoDbContextFactory(client, _tenantRegistry, _configuration);
+        _factory = new TestMongoDbContextFactory(client, _tenantRegistry);
 
         var sheetRepo = new UserSpreadsheetRepository(_factory);
         var rowRepo = new UserSpreadsheetRowRepository(_factory);
+
         _writeService = new UserSpreadsheetWriteService(sheetRepo, rowRepo);
         _readService = new UserSpreadsheetReadService(sheetRepo, rowRepo);
     }
@@ -50,6 +52,7 @@ public class UserSpreadsheetServiceTests : IDisposable
         await _writeService.AddColumnAsync(sheet.Id, "user1", column);
 
         var updatedSheet = await _readService.GetSpreadsheetAsync(sheet.Id, "user1");
+
         Assert.Single(updatedSheet.Columns);
         Assert.Equal("Amount", updatedSheet.Columns[0].Name);
     }
@@ -58,6 +61,7 @@ public class UserSpreadsheetServiceTests : IDisposable
     public async Task AddRow_ShouldAddRowSuccessfully()
     {
         var sheet = await _writeService.CreateSpreadsheetAsync("user1", "My Sheet");
+
         var column = new SpreadsheetColumn
         {
             ColumnId = Guid.NewGuid().ToString(),
@@ -65,15 +69,18 @@ public class UserSpreadsheetServiceTests : IDisposable
             Type = SpreadsheetColumnType.Number,
             Required = true
         };
+
         await _writeService.AddColumnAsync(sheet.Id, "user1", column);
 
         var values = new Dictionary<string, object?>
         {
             { column.ColumnId, 42 }
-        };        
+        };
+
         await _writeService.AddRowAsync(sheet.Id, "user1", values);
 
         var rows = await _readService.GetRowsAsync(sheet.Id, "user1");
+
         Assert.Single(rows);
         Assert.Equal(42, rows[0].Values[column.ColumnId]);
     }
@@ -82,6 +89,7 @@ public class UserSpreadsheetServiceTests : IDisposable
     public async Task AddRow_ShouldThrowValidationError_WhenRequiredColumnMissing()
     {
         var sheet = await _writeService.CreateSpreadsheetAsync("user1", "My Sheet");
+
         var column = new SpreadsheetColumn
         {
             ColumnId = Guid.NewGuid().ToString(),
@@ -89,6 +97,7 @@ public class UserSpreadsheetServiceTests : IDisposable
             Type = SpreadsheetColumnType.Number,
             Required = true
         };
+
         await _writeService.AddColumnAsync(sheet.Id, "user1", column);
 
         var values = new Dictionary<string, object?>(); // Missing "Amount"
@@ -96,7 +105,6 @@ public class UserSpreadsheetServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _writeService.AddRowAsync(sheet.Id, "user1", values)
         );
-
     }
 
     public void Dispose() => _runner.Dispose();
