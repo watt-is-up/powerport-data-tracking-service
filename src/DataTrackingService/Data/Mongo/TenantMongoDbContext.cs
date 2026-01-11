@@ -1,5 +1,4 @@
 using MongoDB.Driver;
-using DataTrackingService.Domain.Models.Spreadsheets;
 using DataTrackingService.Domain.Models.Usage;
 using DataTrackingService.Domain.Models.Providers;
 
@@ -14,6 +13,8 @@ public class TenantMongoDbContext
         _database = database;
     }
 
+    public IMongoDatabase Database => _database;
+
     public IMongoCollection<ChargingSessionView> ChargingSessions =>
         _database.GetCollection<ChargingSessionView>("charging_sessions");
 
@@ -22,4 +23,5 @@ public class TenantMongoDbContext
 
     public IMongoCollection<ProviderMonthlyRevenueView> ProviderMonthlyRevenue =>
         _database.GetCollection<ProviderMonthlyRevenueView>("provider_monthly_revenue");    
+
 }

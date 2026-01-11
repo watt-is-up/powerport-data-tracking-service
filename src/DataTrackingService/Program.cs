@@ -1,13 +1,18 @@
 using System.Text.Json.Serialization;
-using MongoDB.Driver;
+
+using DataTrackingService.Infrastructure.Multitenancy;
 
 using DataTrackingService.Data.Mongo;
+using DataTrackingService.Data.Mongo.Migrations;
+using DataTrackingService.Data.Mongo.Multitenancy;
 using DataTrackingService.Data.Mongo.Spreadsheets;
 using DataTrackingService.Data.Mongo.Usage;
 
 using DataTrackingService.Application.Commands;
 using DataTrackingService.Application.Queries;
 using DataTrackingService.Application.Services;
+
+using DataTrackingService.Messaging.Consumers;
 
 var logger = LoggerFactory
     .Create(builder => builder.AddConsole())
@@ -20,17 +25,32 @@ builder.Services.AddControllers().AddJsonOptions(options =>
             new JsonStringEnumConverter());
     });
 
+// ------------------ Add migrations --------------
+var migrations = new IMongoMigration[]
+{
+    // new AddPaymentStatusMigration(),
+    // new RenameEnergyFieldMigration()
+    // Add new migrations here manually
+};
+// Register each migration in DI
+foreach (var migration in migrations)
+{
+    builder.Services.AddSingleton<IMongoMigration>(migration);
+}
+
 // MongoDB
-builder.Services.AddSingleton<IMongoClient>(_ =>
-    new MongoClient(builder.Configuration["MongoDb:ConnectionString"]));
+builder.Services.Configure<MongoOptions>(
+    builder.Configuration.GetSection("Mongo"));
 builder.Services.AddSingleton<ITenantRegistry, TenantRegistry>();
 builder.Services.AddScoped<IMongoDbContextFactory, MongoDbContextFactory>();
 
-builder.Services.AddScoped<IMongoDbContextFactory, MongoDbContextFactory>();
-builder.Services.AddScoped<MongoIndexInitializer>();
+builder.Services.AddSingleton<MongoMigrationRunner>();
+builder.Services.AddScoped<MongoIndexInitializer>(); // scoped because it uses IMongoDbContextFactory
+builder.Services.AddHostedService<MongoStartupTask>();
 
+
+builder.Services.AddScoped<ChargingSessionWriteService>();
 builder.Services.AddScoped<ChargingSessionRepository>();
-
 builder.Services.AddScoped<UserMonthlyUsageRepository>();
 builder.Services.AddScoped<ProviderMonthlyRevenueRepository>();
 builder.Services.AddScoped<ProviderDailyPowerUsageRepository>();
@@ -38,6 +58,9 @@ builder.Services.AddScoped<ProviderDailyPowerUsageRepository>();
 builder.Services.AddScoped<UserSpreadsheetRepository>();
 builder.Services.AddScoped<UserSpreadsheetRowRepository>();
 
+// Register in Memmory tenants
+builder.Services.AddSingleton<ITenantRegistry>(_ =>
+    new TenantRegistry(TenantBootstrap.GetMockTenants()));
 
 // Application services
 builder.Services.AddScoped<ChargingSessionReadService>();
@@ -49,6 +72,9 @@ builder.Services.AddScoped<ProviderAggregationService>();
 builder.Services.AddScoped<UserSpreadsheetReadService>();
 builder.Services.AddScoped<UserSpreadsheetWriteService>();
 
+// Kafka consumers and producers
+builder.Services.AddHostedService<BillingEventsConsumer>();
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -56,20 +82,6 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var initializer = scope.ServiceProvider
-        .GetRequiredService<MongoIndexInitializer>();
-
-    try
-    {
-        await initializer.EnsureIndexesAsync();
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Failed to initialize MongoDB indexes");
-    }
-}
 
 if (app.Environment.IsDevelopment())
 {
