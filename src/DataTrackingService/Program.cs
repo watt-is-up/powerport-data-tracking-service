@@ -60,7 +60,7 @@ builder.Services.AddScoped<UserSpreadsheetRowRepository>();
 
 // Register in Memmory tenants
 builder.Services.AddSingleton<ITenantRegistry>(_ =>
-    new TenantRegistry(TenantBootstrap.GetMockTenants()));
+    new TenantRegistry(TenantBootstrap.LoadFromConfiguration(builder.Configuration)));
 
 // Application services
 builder.Services.AddScoped<ChargingSessionReadService>();

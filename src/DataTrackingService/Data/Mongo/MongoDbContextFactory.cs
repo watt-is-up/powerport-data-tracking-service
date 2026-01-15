@@ -19,7 +19,6 @@ public sealed class MongoDbContextFactory: IMongoDbContextFactory
     private readonly string _host;
     private readonly int _port;
     private readonly string _sharedDatabaseName;
-
     private readonly MongoClient _sharedClient;
     private readonly ConcurrentDictionary<string, MongoClient> _tenantClients = new();
 
@@ -33,14 +32,15 @@ public sealed class MongoDbContextFactory: IMongoDbContextFactory
 
         _host = options.Value.Host;
         _port = options.Value.Port;
-        _sharedDatabaseName = options.Value.SharedDatabase;
 
         // Shared DB client (single user)
+        var sharedTenant = _tenantRegistry.GetSharedTenant();
+        _sharedDatabaseName = sharedTenant.DatabaseConnection.DatabaseName;
         _sharedClient = CreateClient(
             _host,
             _port,
-            options.Value.SharedUser,
-            options.Value.SharedPassword,
+            sharedTenant.DatabaseConnection.User,
+            sharedTenant.DatabaseConnection.Password,
             authDb: _sharedDatabaseName  // <- use the DB the user exists in
         );
     }
@@ -96,7 +96,4 @@ public sealed class MongoOptions
 {
     public string Host { get; init; } = default!;
     public int Port { get; init; }
-    public string SharedDatabase { get; init; } = default!;
-    public string SharedUser { get; init; } = default!;
-    public string SharedPassword { get; init; } = default!;
 }

@@ -1,6 +1,8 @@
 using DataTrackingService.Domain.Models.Providers;
 using DataTrackingService.Domain.Models.Spreadsheets;
 using DataTrackingService.Domain.Models.Usage;
+using DataTrackingService.Data.Mongo.Multitenancy;
+
 using MongoDB.Driver;
 
 namespace DataTrackingService.Data.Mongo.Migrations;
@@ -8,10 +10,12 @@ public class MongoIndexInitializer
 {
 
     private readonly IMongoDbContextFactory _contextFactory;
+    private readonly ITenantRegistry _tenantRegistry;
 
-    public MongoIndexInitializer(IMongoDbContextFactory contextFactory)
+    public MongoIndexInitializer(IMongoDbContextFactory contextFactory, ITenantRegistry tenantRegistry)
     {
         _contextFactory = contextFactory;
+        _tenantRegistry = tenantRegistry;
     }
 
 
@@ -22,7 +26,8 @@ public class MongoIndexInitializer
         for (var attempt = 1; attempt <= 10; attempt++)
         {
             try
-            {
+            {   
+                
                 var userContext = _contextFactory.GetUserContext();
 
                 await userContext.UserSpreadsheets.Indexes.CreateOneAsync(
