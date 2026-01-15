@@ -8,6 +8,18 @@ public static class TenantBootstrap
     {
         new Tenant
         {
+            Id = "11111111-1111-1111-1111-111111111111",
+            Name = "shared",
+            Mode = TenantMode.Isolated,
+            DatabaseConnection = new DatabaseConnection
+            {
+                User = "data_tracking_shared_user",
+                Password = "secretpassword",
+                DatabaseName = "data_tracking_shared_db"
+            }
+        },
+        new Tenant
+        {
             Id = "5a8d3c1f-9e42-4b7d-8f06-2c91e7a4d6b5",
             Name = "ina",
             Mode = TenantMode.Isolated,
