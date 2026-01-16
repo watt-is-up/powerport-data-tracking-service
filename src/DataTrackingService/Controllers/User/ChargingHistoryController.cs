@@ -14,6 +14,11 @@ public class ChargingHistoryController : ControllerBase
         _readService = readService;
     }
 
+    /// <summary>
+    /// Get the complete charging history of a selected user
+    /// </summary>
+    /// <param name="userId">The ID of the user you want charging history from</param>
+    /// <returns></returns>
     [HttpGet]
     public async Task<IActionResult> GetUserChargingHistory(string userId)
     {

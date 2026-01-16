@@ -15,6 +15,12 @@ public class ProviderDashboardController : ControllerBase
         _chargingSessionQueryService = chargingSessionQueryService;
     }
 
+
+    /// <summary>
+    /// Get the data about monthy revenue
+    /// </summary>
+    /// <param name="providerId">The ID of the provider you are interested in</param>
+    /// <returns></returns>
     [HttpGet("revenue/monthly")]
     public async Task<IActionResult> GetMonthlyRevenue(string providerId)
     {
@@ -22,6 +28,13 @@ public class ProviderDashboardController : ControllerBase
         return Ok(data);
     }
 
+    /// <summary>
+    /// Get the total power usage of a provider
+    /// </summary>
+    /// <param name="providerId">The ID of the provider you are interested in</param>
+    /// <param name="from">The starting date and time</param>
+    /// <param name="to">The ending date and time</param>
+    /// <returns></returns>
     [HttpGet("power")]
     public async Task<IActionResult> GetPowerUsage(
         string providerId,

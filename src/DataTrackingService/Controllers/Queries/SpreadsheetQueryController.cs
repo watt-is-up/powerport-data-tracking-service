@@ -17,6 +17,13 @@ public class SpreadsheetQueryController : ControllerBase
         _readService = readService;
     }
 
+    /// <summary>
+    /// The total in a month
+    /// </summary>
+    /// <param name="spreadsheetId"></param>
+    /// <param name="userId"></param>
+    /// <param name="column"></param>
+    /// <returns></returns>
     [HttpGet("sum-by-month")]
     public async Task<IActionResult> SumByMonth(
         string spreadsheetId,
@@ -30,6 +37,12 @@ public class SpreadsheetQueryController : ControllerBase
     }
 
     // Raw data (table view)
+    /// <summary>
+    /// Get all rows
+    /// </summary>
+    /// <param name="spreadsheetId"></param>
+    /// <param name="userId"></param>
+    /// <returns></returns>
     [HttpGet("rows")]
     public async Task<IActionResult> GetRows(
         string spreadsheetId,

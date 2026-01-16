@@ -14,6 +14,11 @@ public class UserUsageController : ControllerBase
         _queryService = queryService;
     }
 
+    /// <summary>
+    /// Get the monthy usage of a user
+    /// </summary>
+    /// <param name="userId">The ID of the user</param>
+    /// <returns></returns>
     [HttpGet("monthly")]
     public async Task<IActionResult> GetMonthlyUsage(string userId)
     {

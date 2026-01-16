@@ -15,6 +15,12 @@ public class SpreadsheetRowsController : ControllerBase
         _writeService = service;
     }
 
+    /// <summary>
+    /// Insert row
+    /// </summary>
+    /// <param name="spreadsheetId"></param>
+    /// <param name="req"></param>
+    /// <returns></returns>
     [HttpPost]
     public async Task<IActionResult> InsertRow(
         string spreadsheetId,

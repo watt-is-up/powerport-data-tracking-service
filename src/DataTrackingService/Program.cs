@@ -1,4 +1,12 @@
 using System.Text.Json.Serialization;
+using System.Reflection;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using HealthChecks.NpgSql;
+using System.Text.Json;  
 
 using DataTrackingService.Infrastructure.Multitenancy;
 
@@ -75,6 +83,28 @@ builder.Services.AddScoped<UserSpreadsheetWriteService>();
 // Kafka consumers and producers
 builder.Services.AddHostedService<BillingEventsConsumer>();
 
+// Add SwaggerGen
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    options.IncludeXmlComments(xmlPath);
+
+});
+
+
+// Add health checks
+builder.Services.AddHealthChecks()
+    .AddCheck(
+        "self",
+        () => HealthCheckResult.Healthy(),
+        tags: new[] { "live "})
+    .AddNpgSql(
+        builder.Configuration.GetConnectionString("Powerport-data-tracking-service-db"),
+        tags: new[] { "ready" }
+    );
+
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -83,12 +113,53 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 
-if (app.Environment.IsDevelopment())
+/* if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+} */
+
+// Always add Swagger
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// Health endpoints
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("live"),
+    ResponseWriter = WriteHealthResponse
+})
+.WithTags("Health")
+.AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse
+})
+.WithTags("Health")
+.AllowAnonymous();
+
 
 app.UseHttpsRedirection();
 app.MapControllers();
 app.Run();
+
+
+static Task WriteHealthResponse(HttpContext context, HealthReport report)
+{
+    context.Response.ContentType = "application/json";
+
+    var result = JsonSerializer.Serialize(new
+    {
+        status = report.Status.ToString(),
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            description = e.Value.Description
+        })
+    });
+
+    return context.Response.WriteAsync(result);
+}
