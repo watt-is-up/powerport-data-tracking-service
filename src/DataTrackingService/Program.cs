@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using HealthChecks.NpgSql;
 using System.Text.Json;  
+using MongoDB.Driver;
 
 using DataTrackingService.Infrastructure.Multitenancy;
 
@@ -94,13 +95,18 @@ builder.Services.AddSwaggerGen(options =>
 
 
 // Add health checks
+var mongoHost = builder.Configuration["Mongo:Host"];
+var mongoPort = builder.Configuration["Mongo:Port"];
+var mongoConnectionString = $"mongodb://{mongoHost}:{mongoPort}";
+
 builder.Services.AddHealthChecks()
     .AddCheck(
         "self",
         () => HealthCheckResult.Healthy(),
-        tags: new[] { "live "})
-    .AddNpgSql(
-        builder.Configuration.GetConnectionString("Powerport-data-tracking-service-db"),
+        tags: new[] { "live" })
+    .AddMongoDb(
+        sp => new MongoClient(mongoConnectionString),
+        name: "mongodb",
         tags: new[] { "ready" }
     );
 
